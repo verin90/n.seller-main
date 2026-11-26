@@ -12,6 +12,8 @@ function Layout() {
         switch (location.pathname) {
             case '/my-ads':
                 return 'Мои объявления';
+            case '/my-ads/new':
+                return 'Создание объявления';
             case '/my-ads/messages':
                 return 'Сообщения';
             case '/my-ads/subscription':
@@ -19,7 +21,7 @@ function Layout() {
             case '/my-ads/profile':
                 return 'Настройки профиля';
             default:
-                return 'Мои объявления';
+                return location.pathname.endsWith('/edit') ? 'Редактирование объявления' : 'Объявление';
         }
     }, [location]);
 
@@ -28,14 +30,14 @@ function Layout() {
             <Header_White />
             <section className={styles.myAdsNav}>
                 <div className={styles.mainNav}>
-                    <h2>{pageTitle}</h2>
+                    <h1>{pageTitle}</h1>
                     <ul className={styles.userMenuList}>
                         <li className={styles.userMenuItem}>
-                            <NavLink to="/my-ads">Мои объявления</NavLink>
+                            <NavLink to="/my-ads" end>Мои объявления</NavLink>
                         </li>
                         <li className={styles.userMenuItem}>
                             <NavLink to="/my-ads/messages">
-                                Сообщения <span>(4 новых)</span>
+                                Сообщения
                             </NavLink>
                         </li>
                         <li className={styles.userMenuItem}>

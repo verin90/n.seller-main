@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { api, errorText } from '../../../api';
 import styles from './LoginSalesman.module.scss';
 
 function LoginSalesman() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -27,26 +28,19 @@ function LoginSalesman() {
         }
 
         try {
-            const response = await axios.post('http://localhost:3000/api/login', formData);
+            const response = await api.post('/login', formData);
             const { token, user } = response.data;
 
             localStorage.setItem('token', token);
 
-            if (user.role === 'admin') {
-                navigate('/admin');
-            } else if (user.role === 'seller') {
-                navigate('/my-ads');
-            } else if (user.role === 'buyer') {
-                navigate('/mainUsers');
-            } else {
-                navigate('/');
-            }
-        } catch (err) {
-            if (err.response && err.response.data) {
-                setError(err.response.data.error);
-            } else {
-                setError('Ошибка при входе');
-            }
+            const requested = location.state?.from;
+            const requestedAllowed = typeof requested === 'string'
+                && (requested === '/messages' || /^\/vehicles\/\d+$/.test(requested)
+                    || (user.role !== 'buyer' && /^\/my-ads(?:\/|$)/.test(requested)));
+            const home = { admin: '/admin', seller: '/my-ads', buyer: '/mainUsers' }[user.role] || '/';
+            navigate(requestedAllowed ? requested : home, { replace: true });
+        } catch (failure) {
+            setError(errorText(failure));
         } finally {
             setLoading(false);
         }
@@ -66,7 +60,7 @@ function LoginSalesman() {
                         <input
                             type="email"
                             id="email"
-                            name="email"
+                            name="email" autoComplete="username"
                             value={formData.email}
                             onChange={handleChange}
                             required
@@ -78,7 +72,7 @@ function LoginSalesman() {
                         <input
                             type="password"
                             id="password"
-                            name="password"
+                            name="password" autoComplete="current-password"
                             value={formData.password}
                             onChange={handleChange}
                             required

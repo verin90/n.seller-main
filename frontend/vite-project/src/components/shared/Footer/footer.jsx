@@ -1,39 +1,20 @@
-import styles from './footer.module.scss';
-import { Photos } from '../../../../photo';
+import { Link } from 'react-router-dom';
 
-function Footer() {
+export default function Footer() {
     return (
-        <>
-            <footer>
-                <div className={styles.footerMain}>
-                    <div className={styles.footerTop}>
-                        <div className={styles.textLogo}>
-                            <h2>N O V O</h2>
-                            <p>Маркетплейс коммерчиского транспорта и тяжелой техники</p>
-                        </div>
-                        <div className={styles.textAbout}>
-                            <h4>Покупателю</h4>
-                            <div className={styles.textRow}>
-                                <p>Служба поддержки</p>
-                                <p>Стать продавцом</p>
-                            </div>
-                        </div>
-                        <div className={styles.socNetworks}>
-                            <h4>Следите за нами</h4>
-                            <div className={styles.socNetIcon}>
-                                <img src={Photos.facebook} />
-                                <img src={Photos.instagram} alt="" />
-                                <img src={Photos.youtube} alt="" />
-                            </div>
-                        </div>
-                    </div>
-                    <div className={styles.footerBottom}>
-                        <h3>© 2019–2020 Группа компаний «NOVO»</h3>
-                    </div>
+        <footer className="market-footer">
+            <div className="market-container">
+                <div>
+                    <Link to="/mainUsers" className="market-logo">N O V O</Link>
+                    <p>Маркетплейс коммерческого транспорта и тяжёлой техники</p>
                 </div>
-            </footer>
-        </>
+                <nav aria-label="Ссылки в подвале">
+                    <Link to="/vehicles">Каталог</Link>
+                    <Link to="/registrationSalesman">Стать продавцом</Link>
+                    <a href="/#tariffs">Тарифы</a>
+                </nav>
+                <p className="market-footer-copy">© NOVO</p>
+            </div>
+        </footer>
     );
 }
-
-export default Footer;

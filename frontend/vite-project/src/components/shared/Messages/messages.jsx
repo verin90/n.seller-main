@@ -1,69 +1,68 @@
-import styles from './Messages.module.scss';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api, errorText } from '../../../api';
+import { useApi } from '../../../useApi';
 
-function Messages() {
-    const [messageText, setMessageText] = useState('');
+export default function Messages() {
+    const { data: user } = useApi('/me');
+    const { data: messages = [], loading, error, reload } = useApi('/messages');
+    const [active, setActive] = useState('');
+    const [body, setBody] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [failure, setFailure] = useState('');
+    const threads = new Map();
 
-    const messages = [
-        { id: 1, text: 'Привет, у меня все ок, а у тебя?', time: '14:59', isMy: false },
-        { id: 2, text: 'У меня все отлично!', time: '14:59', isMy: true },
-        {
-            id: 3,
-            text: 'Посылаю тебе цены на Rav 4, думаю, тебе все понравится',
-            time: '14:59',
-            isMy: true,
-        },
-        { id: 4, text: 'Pricing.pdf', time: '14:59', isMy: true, isFile: true },
-        { id: 5, text: 'Привет, нужно больше информации по авто', time: '14:59', isMy: false },
-        { id: 6, text: 'Когда сможешь сорентировать?', time: '14:59', isMy: false },
-    ];
+    for (const message of user ? messages : []) {
+        const sent = String(message.sender_id) === String(user.id);
+        const other = sent ? message.recipient_id : message.sender_id;
+        const key = `${message.car_id}:${other}`;
+        if (!threads.has(key)) threads.set(key, { name: sent ? message.recipient_name : message.sender_name, messages: [] });
+        threads.get(key).messages.push({ ...message, sent });
+    }
+    const selected = threads.has(active) ? active : threads.keys().next().value;
+    const thread = threads.get(selected);
+    const last = thread?.messages.at(-1);
+
+    async function reply(event) {
+        event.preventDefault();
+        setBusy(true);
+        setFailure('');
+        try {
+            await api.post('/messages', { replyTo: last.id, body });
+            setBody('');
+            reload();
+        } catch (error) {
+            setFailure(errorText(error));
+        } finally {
+            setBusy(false);
+        }
+    }
 
     return (
-        <div className={styles.messagesPage}>
-            <div className={styles.chatsList}>
-                <div className={styles.chatsHeader}>
-                    <Link to={'/my-ads/messages'}>
-                        <button>Все сообщения</button>
-                    </Link>
-                    <p>Игорь Игорьевич</p>
-                </div>
+        <main className="market-page">
+            <div className="market-container">
+                <h1>Сообщения</h1>
+                {loading && <p role="status">Загрузка сообщений…</p>}
+                {error && <p role="alert">{error} <button onClick={reload}>Повторить</button></p>}
+                {!loading && !error && !messages.length && <p>У вас пока нет сообщений. <Link to="/vehicles">Перейти в каталог</Link></p>}
+                {thread && <div className="message-layout">
+                    <nav aria-label="Переписки">
+                        {[...threads].reverse().map(([key, chat]) => <button key={key} type="button" className="market-secondary" aria-pressed={key === selected}
+                            onClick={() => { setActive(key); setBody(''); setFailure(''); }}><strong>{chat.name}</strong><span>{chat.messages[0].listing_name}</span></button>)}
+                    </nav>
+                    <section>
+                        <div className="market-bar"><h2>{thread.name}</h2><Link to={`/vehicles/${last.car_id}`}>{last.listing_name}</Link></div>
+                        <ol className="message-thread">
+                            {thread.messages.map((message) => <li key={message.id} className={message.sent ? 'sent' : ''}><small>{message.sent ? 'Вы' : message.sender_name}</small><p>{message.body}</p></li>)}
+                        </ol>
+                        <form onSubmit={reply}>
+                            <label>Ответить<textarea value={body} onChange={(event) => setBody(event.target.value)} required maxLength={3000} rows={3} /></label>
+                            <button className="market-button" disabled={busy}>Отправить</button>
+                            {failure && <p className="market-error" role="alert">{failure}</p>}
+                        </form>
+                    </section>
+                </div>}
             </div>
-
-            <div className={styles.chatArea}>
-                <>
-                    <div className={styles.messages}>
-                        {messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`${styles.message} ${msg.isMy ? styles.myMessage : ''}`}>
-                                {msg.isFile ? (
-                                    <a href="#" className={styles.fileLink}>
-                                        📎 {msg.text}
-                                    </a>
-                                ) : (
-                                    <div className={styles.messageText}>{msg.text}</div>
-                                )}
-                                <div className={styles.messageTime}>{msg.time}</div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className={styles.messageInput}>
-                        <textarea
-                            placeholder="Напишите свое сообщение..."
-                            value={messageText}
-                            onChange={(e) => setMessageText(e.target.value)}
-                        />
-                        <div className={styles.inputActions}>
-                            <button className={styles.attachBtn}>📎 Прикрепить файлы</button>
-                            <button className={styles.sendBtn}>ОТПРАВИТЬ</button>
-                        </div>
-                    </div>
-                </>
-            </div>
-        </div>
+        </main>
     );
 }
-
-export default Messages;

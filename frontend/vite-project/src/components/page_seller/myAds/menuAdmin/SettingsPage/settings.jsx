@@ -1,243 +1,121 @@
-import { useState, useEffect } from 'react';
-import { IoChevronUp, IoChevronDown } from 'react-icons/io5';
-import styles from './settings.module.scss';
+import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api, errorText } from '../../../../../api';
+import { useApi } from '../../../../../useApi';
 
-function Box({ title, children }) {
-    const [isOpen, setIsOpen] = useState(false);
+const contacts = {
+    name_company: 'Название компании', country: 'Страна', city: 'Город', adress: 'Адрес',
+    pocht_index: 'Почтовый индекс', work_number: 'Рабочий телефон', web_site: 'Веб-сайт',
+    business_hours: 'Время работы', initials: 'ФИО контактного лица', number: 'Мобильный телефон',
+};
 
-    return (
-        <div className={styles.boxSettings}>
-            <div className={styles.boxClick}>
-                <div onClick={() => setIsOpen(!isOpen)} className={styles.settingsStyle}>
-                    <h2>{title}</h2>
-                    <span>{isOpen ? <IoChevronUp /> : <IoChevronDown />}</span>
-                </div>
-
-                <div className={`${styles.boxContent} ${isOpen ? styles.open : ''}`}>
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
+export default function Settings() {
+    const { data: user, loading, error, reload } = useApi('/me');
+    if (loading) return <p className="page-status" role="status">Загрузка профиля…</p>;
+    if (error) return <p className="page-status" role="alert">{error} <button onClick={reload}>Повторить</button></p>;
+    return <Profile user={user} />;
 }
 
-function Settings() {
-    const [newEmail, setNewEmail] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [currentEmail, setCurrentEmail] = useState('');
-    const [message, setMessage] = useState('');
+function Profile({ user }) {
+    const [profile, setProfile] = useState(user);
+    const [accountValues, setAccountValues] = useState(null);
+    const [result, setResult] = useState({});
+    const [busy, setBusy] = useState(false);
+    const dialog = useRef(null);
+    const accountForm = useRef(null);
+    const navigate = useNavigate();
 
-    const token = localStorage.getItem('token');
-
-    useEffect(() => {
-        if (!token) return;
-
-        fetch('http://localhost:3000/api/me', {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => setCurrentEmail(data.email || ''))
-            .catch((err) => console.error(err));
-    }, [token]);
-
-    const handleUpdate = async () => {
-        if (!token) {
-            alert('Сначала войдите в систему');
-            return;
-        }
-
+    async function save(values, section) {
+        setBusy(true);
+        setResult({});
         try {
-            const res = await fetch('http://localhost:3000/api/update_profile', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ newEmail, newPassword }),
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setMessage('Данные успешно обновлены');
-                if (data.user.email) setCurrentEmail(data.user.email);
-                setNewEmail('');
-                setNewPassword('');
-            } else {
-                setMessage(data.error);
-            }
-        } catch (err) {
-            console.error(err);
-            setMessage('Ошибка сервера');
+            const { data } = await api.put('/update_profile', values);
+            setProfile(data.user);
+            setResult({ section, message: 'Изменения сохранены.' });
+            if (section === 'account') dialog.current.close();
+            return true;
+        } catch (failure) {
+            setResult({ section, error: errorText(failure) });
+            return false;
+        } finally {
+            setBusy(false);
         }
-    };
+    }
+
+    function status(section) {
+        if (result.section !== section) return null;
+        return result.error
+            ? <p className="market-error" role="alert">{result.error}</p>
+            : <p role="status">{result.message}</p>;
+    }
 
     return (
-        <section className={styles.profileSection}>
-            <div className={styles.profileHeader}>
-                <div className={styles.userInfo}>
-                    <h2 className={styles.userName}>Профиль OTP Leasing</h2>
-                    <p
-                        className={styles.logoutLink}
-                        onClick={() => localStorage.removeItem('token')}>
-                        Выйти из аккаунта
-                    </p>
+        <main className="market-page">
+            <div className="market-container">
+                <div className="market-bar">
+                    <h2>{profile.name_company || 'Профиль продавца'}</h2>
+                    <button className="market-secondary" onClick={() => { localStorage.removeItem('token'); navigate('/login-sales', { replace: true }); }}>Выйти из аккаунта</button>
                 </div>
-
-                <div className={styles.settingsContainer}>
-                    <Box title="Настройки аккаунта">
-                        <div className={styles.accountSettings}>
-                            <div className={styles.currentEmailBlock}>
-                                <p className={styles.label}>Ваш E-mail адрес:</p>
-                                <span className={styles.emailValue}>{currentEmail}</span>
-                            </div>
-
-                            <div className={styles.changeEmailBlock}>
-                                <p className={styles.sectionTitle}>Изменить E-mail адрес</p>
-                                <div className={styles.inputGroup}>
-                                    <p className={styles.inputLabel}>Введите новый E-mail адрес</p>
-                                    <input
-                                        type="text"
-                                        className={styles.input}
-                                        value={newEmail}
-                                        onChange={(e) => setNewEmail(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={styles.changePasswordBlock}>
-                                <p className={styles.sectionTitle}>Изменить пароль</p>
-                                <div className={styles.inputGroup}>
-                                    <p className={styles.inputLabel}>Введите новый пароль</p>
-                                    <input
-                                        type="password"
-                                        className={styles.input}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={styles.formActions}>
-                                <button className={styles.saveButton} onClick={handleUpdate}>
-                                    Сохранить изменения
-                                </button>
-                            </div>
-                            {message && <p>{message}</p>}
+                <details className="profile-section">
+                    <summary>Настройки аккаунта</summary>
+                    <form ref={accountForm} onSubmit={(event) => {
+                        event.preventDefault();
+                        const values = Object.fromEntries(new FormData(event.currentTarget));
+                        if (!values.newEmail && !values.newPassword) {
+                            setResult({ section: 'account', error: 'Введите новый email или пароль.' });
+                            return;
+                        }
+                        setResult({});
+                        setAccountValues(values);
+                        dialog.current.showModal();
+                    }}>
+                        <p>Текущий email <strong>{profile.email}</strong></p>
+                        <label>Новый email<input name="newEmail" type="email" autoComplete="email" /></label>
+                        <label>Новый пароль<input name="newPassword" type="password" minLength={8} autoComplete="new-password" /></label>
+                        <button className="market-button">Сохранить</button>
+                        {status('account')}
+                    </form>
+                </details>
+                <details className="profile-section">
+                    <summary>Контактная информация</summary>
+                    <form onSubmit={(event) => { event.preventDefault(); save(Object.fromEntries(new FormData(event.currentTarget)), 'contacts'); }}>
+                        <div className="profile-fields">
+                            {Object.entries(contacts).map(([field, label]) => <label key={field}>{label}
+                                <input name={field} defaultValue={profile[field] || ''} maxLength={500}
+                                    type={field === 'web_site' ? 'url' : ['work_number', 'number'].includes(field) ? 'tel' : 'text'} />
+                            </label>)}
                         </div>
-                    </Box>
-
-                    <Box title="Изменить контактную информацию">
-                        <div className={styles.contactInfo}>
-                            <p className={styles.description}>
-                                Тут вы можете поменять информацию про компанию, которую видят ваши
-                                клиенты
-                            </p>
-
-                            <div className={styles.formGrid}>
-                                <div className={styles.formColumn}>
-                                    <div className={styles.formGroup}>
-                                        <label>Название компании</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Город</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Адрес</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Почтовый индекс</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Мобильный телефон</label>
-                                        <input type="tel" />
-                                    </div>
-                                </div>
-
-                                <div className={styles.formColumn}>
-                                    <div className={styles.formGroup}>
-                                        <label>Веб-Сайт</label>
-                                        <input type="url" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Время работы</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Контактное лицо</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>ФИО</label>
-                                        <input type="text" />
-                                    </div>
-
-                                    <div className={styles.formGroup}>
-                                        <label>Мобильный телефон</label>
-                                        <input type="tel" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={styles.formActions}>
-                                <button className={styles.saveButton}>СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
-                            </div>
+                        <button className="market-button" disabled={busy}>Сохранить контакты</button>
+                        {status('contacts')}
+                    </form>
+                </details>
+                <details className="profile-section">
+                    <summary>Информация о компании</summary>
+                    <form onSubmit={(event) => { event.preventDefault(); save(Object.fromEntries(new FormData(event.currentTarget)), 'company'); }}>
+                        <label>Описание компании<textarea name="company_description" defaultValue={profile.company_description || ''} rows={6} maxLength={6000} /></label>
+                        <button className="market-button" disabled={busy}>Сохранить описание</button>
+                        {status('company')}
+                    </form>
+                </details>
+                <dialog className="market-dialog" ref={dialog} onClose={() => { setAccountValues(null); dialog.current.querySelector('form')?.reset(); }}>
+                    <form onSubmit={async (event) => {
+                        event.preventDefault();
+                        const form = event.currentTarget;
+                        if (await save({ ...accountValues, ...Object.fromEntries(new FormData(form)) }, 'account')) {
+                            form.reset();
+                            accountForm.current?.reset();
+                        }
+                    }}>
+                        <h2>{accountValues?.newEmail && accountValues?.newPassword ? 'Подтвердите изменения' : accountValues?.newEmail ? 'Подтвердите смену email' : 'Подтвердите смену пароля'}</h2>
+                        <label>Действующий пароль<input name="currentPassword" type="password" autoComplete="current-password" required /></label>
+                        {result.error && status('account')}
+                        <div className="market-bar">
+                            <button className="market-button" disabled={busy}>Подтвердить</button>
+                            <button type="button" className="market-secondary" disabled={busy} onClick={() => dialog.current.close()}>Отмена</button>
                         </div>
-                    </Box>
-
-                    <Box title="Изменить информацию о компании">
-                        <div className={styles.companyInfo}>
-                            <p className={styles.description}>
-                                Опишите вашу компанию. Эта информация будет показана на странице
-                                продавца
-                            </p>
-
-                            <div className={styles.editor}>
-                                <div className={styles.editorToolbar}>
-                                    <button className={styles.toolbarButton}>
-                                        <strong>B</strong>
-                                    </button>
-                                    <button className={styles.toolbarButton}>
-                                        <em>I</em>
-                                    </button>
-                                    <button className={styles.toolbarButton}>
-                                        <u>U</u>
-                                    </button>
-                                    <button className={styles.toolbarButton}>
-                                        <s>A</s>
-                                    </button>
-                                    <button className={styles.toolbarButton}>H1</button>
-                                </div>
-
-                                <div className={styles.editorArea}>
-                                    <textarea
-                                        placeholder="Описание..."
-                                        className={styles.editorTextarea}
-                                        rows={4}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={styles.editorActions}>
-                                <button className={styles.saveButton}>СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
-                            </div>
-                        </div>
-                    </Box>
-                </div>
+                    </form>
+                </dialog>
             </div>
-        </section>
+        </main>
     );
 }
-
-export default Settings;

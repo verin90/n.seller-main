@@ -1,140 +1,36 @@
-import { useState, useEffect } from 'react';
-import { Photos } from '../../../../photo';
-import styles from './myAds.module.scss';
-import AddCarForm from './AddCarForm';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useApi } from '../../../useApi';
+import ListingCard from '../../shared/ListingCard';
 
-function MyAds() {
-    const [carAds, setCarAds] = useState([]);
-    const [viewMode, setViewMode] = useState('list');
-
-    const loadAds = () => {
-        fetch('http://localhost:3000/api/car')
-            .then((response) => response.json())
-            .then((data) => setCarAds(data))
-            .catch((error) => console.log('Ошибка загрузки:', error));
-    };
-
-    useEffect(() => {
-        if (viewMode === 'list') {
-            loadAds();
-        }
-    }, [viewMode]);
-
-    const handleAddClick = () => {
-        setViewMode('add');
-    };
-
-    const handleCancel = () => {
-        setViewMode('list');
-    };
-
-    const deleteAd = (id) => {
-        if (window.confirm('Точно удалить это объявление?')) {
-            fetch(`http://localhost:3000/api/car/${id}`, {
-                method: 'DELETE',
-            })
-                .then((response) => {
-                    if (response.ok) {
-                        setCarAds(carAds.filter((car) => car.id !== id));
-                        alert('Объявление удалено!');
-                    } else {
-                        alert('Ошибка при удалении');
-                    }
-                })
-                .catch((error) => {
-                    console.log('Ошибка:', error);
-                    alert('Не получилось удалить');
-                });
-        }
-    };
+export default function MyAds() {
+    const { data: cars = [], error, loading, reload } = useApi('/my-cars');
+    const [search, setSearch] = useState('');
+    const [limit, setLimit] = useState(9);
+    const matching = cars.filter((car) => [car.name_car, car.proizvoditel].filter(Boolean).join(' ').toLowerCase().includes(search.trim().toLowerCase()));
 
     return (
-        <section className={styles.carSection}>
-            <div className={styles.mainBlock}>
-                {viewMode === 'list' ? (
-                    <h2>
-                        Использовано объявлений: <span>{carAds.length}/10</span>
-                    </h2>
-                ) : (
-                    <h2>Добавление нового объявления</h2>
-                )}
-
-                {viewMode === 'list' && (
-                    <div className={styles.searchContainer}>
-                        <img src={Photos.search} alt="search" className={styles.searchIcon} />
-                        <input
-                            type="text"
-                            placeholder="Поиск по объявлениям"
-                            className={styles.searchInput}
-                        />
-                        <button className={styles.addButton} onClick={handleAddClick}>
-                            <p>+ ДОБАВИТЬ ОБЪЯВЛЕНИЕ</p>
-                        </button>
-                    </div>
-                )}
-
-                {viewMode === 'list' ? (
-                    <div className={styles.carBlock}>
-                        {carAds.map((item) => (
-                            <div className={styles.card} key={item.id}>
-                                <div className={styles.cardInner}>
-                                    <div className={styles.imageWrapper}>
-                                        <img src={item.img_car} alt="" />
-                                    </div>
-                                    <div className={styles.titleBlock}>
-                                        <p className={styles.bodyType}>{item.body_type}</p>
-                                        <p className={styles.carName}>{item.name_car}</p>
-                                    </div>
-                                    <ul className={styles.specsList}>
-                                        <li>{item.years_car}</li>
-                                        <li>{item.size_car}</li>
-                                        <li>{item.distance_traveled}</li>
-                                    </ul>
-                                    <div className={styles.footer}>
-                                        <div className={styles.sellerInfo}>
-                                            <div className={styles.locationIcon}>
-                                                <img src={Photos.location} alt="location" />
-                                                <div className={styles.sellerDetails}>
-                                                    <p>{item.seller_name}</p>
-                                                    <p>{item.seller_country}</p>
-                                                </div>
-                                            </div>
-                                            <div className={styles.priceBlock}>
-                                                <div className={styles.price}>
-                                                    <p>
-                                                        {item.price}
-                                                        <span className={styles.currency}>€</span>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className={styles.actionsBtn}>
-                                            <Link to="/redact">
-                                                <button className={styles.editBtn}>
-                                                    Редактировать
-                                                </button>
-                                            </Link>
-
-                                            <button
-                                                className={styles.deleteBtn}
-                                                onClick={() => deleteAd(item.id)}>
-                                                <img src={Photos.deleteI} alt="" /> Удалить
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <AddCarForm onCancel={handleCancel} />
-                )}
-
-                {viewMode === 'list' && <button className={styles.addAds}>Загрузить ещё</button>}
+        <main className="market-page">
+            <div className="market-container">
+                <div className="market-bar">
+                    <p>Объявлений опубликовано <strong>{cars.length}</strong></p>
+                    <Link to="new" className="market-button">Добавить объявление</Link>
+                </div>
+                <input type="search" aria-label="Поиск по объявлениям" placeholder="Поиск по объявлениям" value={search}
+                    onChange={(event) => { setSearch(event.target.value); setLimit(9); }} />
+                {loading && <p role="status">Загрузка объявлений…</p>}
+                {error && <p role="alert">{error} <button onClick={reload}>Повторить</button></p>}
+                {!loading && !error && !matching.length && <p>{search ? 'По вашему запросу ничего не найдено.' : 'У вас пока нет опубликованных объявлений.'}</p>}
+                <div className="listing-grid">
+                    {matching.slice(0, limit).map((car) => <ListingCard key={car.id} item={car} actions={
+                        <>
+                            <Link to={String(car.id)}>Открыть в кабинете</Link>
+                            <Link to={`${car.id}/edit`}>Редактировать</Link>
+                        </>
+                    } />)}
+                </div>
+                {matching.length > limit && <button className="market-button" onClick={() => setLimit(limit + 9)}>Загрузить ещё</button>}
             </div>
-        </section>
+        </main>
     );
 }
-
-export default MyAds;

@@ -1,18 +1,12 @@
 import styles from './adminSaler.module.scss';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useApi } from '../useApi';
 import { Photos } from '../../photo';
 import { Link } from 'react-router-dom';
 import PopUp from '../components/page_seller/popUp/popUp';
-import MainUsers from '../components/page_users/mainPage/mainUsers';
 
 function MainSaler() {
-    const [tariffs, setTariffs] = useState([]);
-
-    useEffect(() => {
-        fetch('http://localhost:3000/api/tariffs')
-            .then((res) => res.json())
-            .then((data) => setTariffs(data));
-    }, []);
+    const { data: tariffs = [], loading, error, reload } = useApi('/tariffs');
 
     const [isRegPopupOpen, setIsRegPopupOpen] = useState(false);
 
@@ -35,16 +29,13 @@ function MainSaler() {
                     </Link>
 
                     <ul>
-                        <li>Маркетплейс</li>
-                        <li>Про нас </li>
-                        <li>Преимущества</li>
-                        <li>Тарифы</li>
+                        <li><Link to="/mainUsers">Маркетплейс</Link></li>
+                        <li><a href="#about">О нас</a></li>
+                        <li><a href="#features">Преимущества</a></li>
+                        <li><a href="#tariffs">Тарифы</a></li>
                     </ul>
 
-                    <Link to="/registrationSalesman">
-                        {' '}
-                        <button>Войти</button>{' '}
-                    </Link>
+                    <Link className="market-button" to="/login-sales">Войти</Link>
                 </div>
             </header>
 
@@ -52,15 +43,15 @@ function MainSaler() {
                 <div className={styles.bottomText}>
                     <div className={styles.textButtonNovo}>
                         <div className={styles.textNovo}>
-                            <h4>Novo - маркетплейс техники</h4>
-                            <p>Продавай технику быстро и удобно!</p>
+                            <p>Маркетплейс техники NOVO</p>
+                            <h1>Продавайте технику на NOVO</h1>
                         </div>
-                        <button>стать продавцом на Novo</button>
+                        <Link className="market-button" to="/registrationSalesman">Стать продавцом на NOVO</Link>
                     </div>
                 </div>
             </section>
 
-            <section className={styles.aboutUs}>
+            <section className={styles.aboutUs} id="about">
                 <div className={styles.aboutMain}>
                     <div className={styles.textAboutMain}>
                         <h4>Про компанию</h4>
@@ -87,7 +78,7 @@ function MainSaler() {
                 </div>
             </section>
 
-            <section className={styles.features}>
+            <section className={styles.features} id="features">
                 <div className={styles.featuresRow}>
                     <div className={styles.featuresText}>
                         <p className={styles.text1}>Понятный мессенджер</p>
@@ -110,19 +101,21 @@ function MainSaler() {
                 </div>
             </section>
 
-            <section className={styles.tariff}>
+            <section className={styles.tariff} id="tariffs">
                 <div className={styles.tariffMain}>
                     <div className={styles.tariffWrapper}>
                         <p className={styles.tariffSubtitle}>Тарифы и цены</p>
                         <h2 className={styles.tariffMainTitle}>
-                            Стань продавцом сегодня и получи 10 объявлений бесплатно!
+                            Выберите тариф для размещения объявлений
                         </h2>
 
+                        {loading && <p role="status">Загрузка тарифов…</p>}
+                        {error && <p role="alert">{error} <button onClick={reload}>Повторить</button></p>}
                         <div className={styles.tariffContainer}>
                             {tariffs.map((tariff) => (
                                 <div key={tariff.id} className={styles.tariffItem}>
                                     <div className={styles.tariffTextIcon}>
-                                        <img src={tariff.icon_tariff} />
+                                        <img src={tariff.icon_tariff} alt="" />
                                         <h3 className={styles.tariffTitle}>{tariff.plan}</h3>
                                     </div>
 
@@ -143,9 +136,9 @@ function MainSaler() {
                                     Хотите размещать больше 50-ти объявлений в месяц?
                                 </h2>
                                 <p className={styles.tariffCtaText}>
-                                    Мы предложим индивидуальные условия сотрудничества!
+                                    Оставьте заявку на индивидуальные условия.
                                 </p>
-                                <button className={styles.tariffCtaBtn}>отдел продаж</button>
+                                <button className="market-button" onClick={handleOpenReg}>Отдел продаж</button>
                             </div>
                         </div>
                     </div>
@@ -180,22 +173,11 @@ function MainSaler() {
                             </div>
                         </div>
                     </div>{' '}
-                    <div className={styles.btnLink} onClick={handleOpenReg}>
-                        <a href="#" onClick={(e) => e.preventDefault()}>
-                            <button className={styles.ctaButton}>стать продавцом</button>
-                        </a>
-                        <div className={styles.linkBorder}>
-                            <img src={Photos.arrowR} alt="" />
-                        </div>
-                    </div>
+                    <Link className="market-button" to="/registrationSalesman">Стать продавцом</Link>
                 </div>
             </section>
 
-            <PopUp
-                isOpen={isRegPopupOpen}
-                onClose={handleCloseReg}
-                onSuccess={(data) => console.log('Регистрация успешна:', data)}
-            />
+            {isRegPopupOpen && <PopUp onClose={handleCloseReg} />}
         </>
     );
 }

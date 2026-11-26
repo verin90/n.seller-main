@@ -1,100 +1,32 @@
-import { useState, useEffect } from 'react';
-import styles from './subscription.module.scss';
+import { useState } from 'react';
+import { useApi } from '../../../../../useApi';
+import PopUp from '../../../popUp/popUp';
 
-function SubscriptionPage() {
-    const [allTariffs, setAllTariffs] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetch('http://localhost:3000/api/tariffs')
-            .then((res) => res.json())
-            .then((data) => {
-                setAllTariffs(data);
-                setLoading(false);
-            });
-    }, []);
-
-    if (loading) return <div className={styles.loading}>Загрузка...</div>;
-
-    const starter = allTariffs.find((t) => t.id === 1);
-    const premiumAndUltimate = allTariffs.filter((t) => t.id === 2 || t.id === 3);
+export default function SubscriptionPage() {
+    const { data: tariffs = [], loading, error, reload } = useApi('/tariffs');
+    const [showSales, setShowSales] = useState(false);
 
     return (
-        <div className={styles.subscriptionPage}>
-            <div className={styles.container}>
-                <div className={styles.starterSection}>
-                    <h2>Ваш тарифный план:</h2>
-                    <div className={styles.starterMain}>
-                        {starter && <TariffCard tariff={starter} type="starter" />}
-                        <div className={styles.subscriptionDates}>
-                            <div className={styles.paymentInfo}>
-                                <div className={styles.date}>
-                                    <h4>Оплачено:</h4>
-                                    <p>15.10.2020</p>
-                                </div>
-                                <div className={styles.date}>
-                                    <h4>Действителен до:</h4>
-                                    <p>15.10.2020</p>
-                                </div>
-                            </div>
-
-                            <div className={styles.planNotice}>
-                                <p>
-                                    * Вы выбрали бесплатный пакет Starter, который действует до {}
-                                    <span>15.10.2021.</span> С <span>15.09.21</span> этот пакет
-                                    будет стоить <span>499 гривен / месяц</span>
-                                </p>
-                            </div>
-                        </div>
+        <main className="market-page">
+            <div className="market-container">
+                {loading && <p role="status">Загрузка тарифов…</p>}
+                {error && <p role="alert">{error} <button onClick={reload}>Повторить</button></p>}
+                {!loading && !error && !tariffs.length && <p>Тарифы пока недоступны.</p>}
+                {tariffs.length > 0 && <><h2>Тарифы для продавцов</h2>
+                    <div className="listing-grid">
+                        {tariffs.map((tariff) => <article key={tariff.id} className="tariff-card">
+                            {tariff.icon_tariff && <img src={tariff.icon_tariff.startsWith('/') ? tariff.icon_tariff : '/' + tariff.icon_tariff} alt="" />}
+                            <h3>{tariff.plan}</h3>
+                            <strong>{tariff.price}</strong>
+                            <p>{tariff.limit}</p>
+                        </article>)}
                     </div>
-                </div>
-
-                <div className={styles.premiumSection}>
-                    <h2>Другие тарифные планы:</h2>
-                    <div className={styles.tariffsGrid}>
-                        {premiumAndUltimate.map((tariff) => (
-                            <TariffCard key={tariff.id} tariff={tariff} type="premium" />
-                        ))}
-                        <div className={styles.contactStyle}>
-                            <h2>
-                                Для размещения более 50-ти объявлений в месяц, свяжитесь с отделом
-                                продаж
-                            </h2>
-                            <button>
-                                <p>отдел продаж</p>
-                            </button>
-                        </div>
+                    <div className="market-bar"><p>По вопросам подключения и размещения более 50 объявлений свяжитесь с отделом продаж.</p>
+                        <button className="market-button" onClick={() => setShowSales(true)}>Отдел продаж</button>
                     </div>
-                </div>
+                </>}
+                {showSales && <PopUp onClose={() => setShowSales(false)} />}
             </div>
-        </div>
+        </main>
     );
 }
-
-function TariffCard({ tariff, type }) {
-    return (
-        <div className={`${styles.tariffCard} ${styles[type]}`}>
-            <div className={styles.cardHeader}>
-                <img src={`/${tariff.icon_tariff}`} alt={tariff.plan} />
-                <h3>{tariff.plan}</h3>
-            </div>
-
-            <div className={styles.cardBody}>
-                <div className={styles.priceBlock}>
-                    <span className={styles.price}>{tariff.price}</span>
-                    {tariff.price !== 'Бесплатно' && <span className={styles.currency}></span>}
-                </div>
-
-                <p className={styles.limit}>{tariff.limit}</p>
-
-                {tariff.dollar && (
-                    <p className={styles.subscription}>
-                        ${tariff.dollar} {tariff.month}
-                    </p>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export default SubscriptionPage;

@@ -1,179 +1,40 @@
-import styles from '../popUp/popUp.module.scss';
-// import axios from 'axios';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api, errorText } from '../../../api';
 
-function PopUp({ isOpen, onClose }) {
-    const [formData, setFormData] = useState({
-        name: '',
-        phone: '',
-        email: '',
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+export default function PopUp({ onClose }) {
+    const dialog = useRef(null);
+    const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [busy, setBusy] = useState(false);
+    useEffect(() => { dialog.current.showModal(); }, []);
 
-    useEffect(() => {
-        if (isOpen) {
-            setFormData({
-                name: '',
-                phone: '',
-                email: '',
-            });
-            setError(null);
-            setSuccess(false);
+    async function send(event) {
+        event.preventDefault();
+        setBusy(true);
+        setError('');
+        try {
+            await api.post('/sales-requests', Object.fromEntries(new FormData(event.currentTarget)));
+            setSuccess(true);
+        } catch (failure) {
+            setError(errorText(failure));
+        } finally {
+            setBusy(false);
         }
-    }, [isOpen]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-        setError(null);
-    };
-
-    const formatPhone = (value) => {
-        const phoneNumber = value.replace(/\D/g, '').slice(0, 11);
-
-        if (!phoneNumber) return '';
-
-        let formatted = '+7';
-
-        if (phoneNumber.length > 1) {
-            formatted += ' (' + phoneNumber.substring(1, 4);
-        }
-        if (phoneNumber.length >= 5) {
-            formatted += ') ' + phoneNumber.substring(4, 7);
-        }
-        if (phoneNumber.length >= 8) {
-            formatted += '-' + phoneNumber.substring(7, 9);
-        }
-        if (phoneNumber.length >= 10) {
-            formatted += '-' + phoneNumber.substring(9, 11);
-        }
-
-        return formatted;
-    };
-
-    const handlePhoneChange = (e) => {
-        const formatted = formatPhone(e.target.value);
-        setFormData((prev) => ({
-            ...prev,
-            phone: formatted,
-        }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        console.log(' Отправка данных:', formData);
-
-        // try {
-        //     const response = await axios.post('http://localhost:3000/api/users', {
-        //         name: formData.name,
-        //         phone: formData.phone,
-        //         email: formData.email,
-        //     });
-
-        //     console.log(' Ответ сервера:', response.data);
-        //     setSuccess(true);
-
-        //     setTimeout(() => {
-        //         setSuccess(false);
-        //         setFormData({ name: '', phone: '', email: '' });
-        //         onClose();
-        //         if (onSuccess) onSuccess(response.data);
-        //     }, 2000);
-        // } catch (err) {
-        //     console.error(' Ошибка:', err.response?.data || err.message);
-        //     setError(err.response?.data?.error || 'Ошибка при отправке');
-        // } finally {
-        //     setLoading(false);
-        // }
-    };
-
-    const handleClose = () => {
-        setFormData({ name: '', phone: '', email: '' });
-        setError(null);
-        setSuccess(false);
-        onClose();
-    };
-
-    if (!isOpen) return null;
+    }
 
     return (
-        <div className={styles.overlay} onClick={handleClose}>
-            <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
-                <button className={styles.closeBtn} onClick={handleClose}>
-                    ×
-                </button>
-
-                <div className={styles.textUp}>
-                    <h2 className={styles.title}>Мы свяжемся с вами в ближайшее время</h2>
-                    <p>
-                        Впишите свои данные и мы перезвоним вам для создания личного тарифного плана
-                    </p>
-                </div>
-
-                {/* {success ? (
-                    <div className={styles.success}>
-                        <div className={styles.successIcon}>✓</div>
-                        <p>Данные успешно отправлены!</p>
-                    </div>
-                ) : ( */}
-                <form className={styles.popUpForm} onSubmit={handleSubmit}>
-                    <div className={styles.formGroup}>
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            placeholder="Ваше имя "
-                            required
-                            disabled={loading}
-                            autoComplete="name"
-                        />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="E-mail адрес"
-                            required
-                            disabled={loading}
-                            autoComplete="email"
-                        />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                        <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handlePhoneChange}
-                            placeholder="Номер телефона"
-                            required
-                            disabled={loading}
-                            autoComplete="tel"
-                        />
-                    </div>
-
-                    {/* {error && <div className={styles.error}>{error}</div>} */}
-
-                    <button type="submit" className={styles.submitBtn} disabled={loading}>
-                        {'Перезвоните мне!'}
-                    </button>
-                </form>
-                {/* )} */}
+        <dialog ref={dialog} className="market-dialog" aria-labelledby="sales-heading" onClose={onClose}>
+            <div className="market-bar">
+                <h2 id="sales-heading">Отдел продаж</h2>
+                <button className="market-secondary" type="button" onClick={() => dialog.current.close()}>Закрыть</button>
             </div>
-        </div>
+            {success ? <p role="status">Заявка сохранена.</p> : <form onSubmit={send}>
+                <label>Имя<input name="name" required maxLength={150} autoComplete="name" /></label>
+                <label>Телефон<input name="phone" type="tel" required maxLength={40} autoComplete="tel" /></label>
+                <label>Email<input name="email" type="email" required autoComplete="email" /></label>
+                {error && <p className="market-error" role="alert">{error}</p>}
+                <button className="market-button" disabled={busy}>Отправить заявку</button>
+            </form>}
+        </dialog>
     );
 }
-
-export default PopUp;

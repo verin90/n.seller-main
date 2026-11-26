@@ -1,182 +1,101 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, errorText } from '../../../api';
+import { fieldLabels, listingValues } from '../../../vehicles';
 import styles from './AddCarForm.module.scss';
 
-function AddCarForm({ onCancel, onSuccess }) {
-    const [formData, setFormData] = useState({
-        category: '',
-        year: '',
-        brand: '',
-        mileage: '',
-        model: '',
-        country: '',
-        price: '',
-        weight: '',
-        description: '',
-        photos: [],
+const textFields = ['category', 'brand', 'model', 'country'];
+const types = ['image/jpeg', 'image/png', 'image/webp'];
+
+function readPhoto(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
     });
+}
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+export default function AddCarForm({ car }) {
+    const navigate = useNavigate();
+    const [values, setValues] = useState(() => listingValues(car));
+    const [description, setDescription] = useState(car?.description || '');
+    const [retained, setRetained] = useState(car?.photos || []);
+    const [files, setFiles] = useState([]);
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const back = car ? `/my-ads/${car.id}` : '/my-ads';
+    const photoCount = retained.length + files.length;
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-    };
-
-    const handleUpload = (e) => {
-        const files = Array.from(e.target.files);
-
-        setFormData((prev) => ({
-            ...prev,
-            photos: [...prev.photos, ...files],
-        }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const data = new FormData();
-
-        Object.entries(formData).forEach(([key, value]) => {
-            if (key === 'photos') {
-                value.forEach((file) => data.append('photos', file));
-            } else {
-                data.append(key, value);
-            }
-        });
-
-        try {
-            const res = await fetch('http://localhost:3000/api/car', {
-                method: 'POST',
-                body: data,
-            });
-
-            if (res.ok) onSuccess();
-        } catch (err) {
-            console.error(err);
+    function selectPhotos(event) {
+        const selected = [...event.target.files];
+        event.target.value = '';
+        if (selected.length + photoCount > 6 || selected.some((file) => !types.includes(file.type) || file.size > 3 * 1024 * 1024)) {
+            setError('Добавьте до 6 фотографий JPG, PNG или WebP размером до 3 МБ каждая.');
+            return;
         }
-    };
+        setFiles((previous) => [...previous, ...selected]);
+        setError('');
+    }
+
+    async function submit(event) {
+        event.preventDefault();
+        setBusy(true);
+        setError('');
+        try {
+            const payload = { ...values, description, keepPhotos: retained, photos: await Promise.all(files.map(readPhoto)) };
+            const { data } = car ? await api.put(`/car/${car.id}`, payload) : await api.post('/car', payload);
+            navigate(`/my-ads/${data.id}`, { replace: true });
+        } catch (failure) {
+            setError(errorText(failure));
+        } finally {
+            setBusy(false);
+        }
+    }
 
     return (
-        <div className={styles.wrapper}>
-            <div className={styles.topBar}>
-                <button onClick={onCancel} className={styles.back}>
-                    ← Назад
-                </button>
-
-                <div className={styles.pageTitle}>Создание нового объявления</div>
-            </div>
-            <form className={styles.form} onSubmit={handleSubmit}>
-                <h2 className={styles.sectionTitle}>Обзор транспортного средства</h2>
-
-                <div className={styles.grid}>
-                    <div className={styles.field}>
-                        <label>Категория</label>
-                        <input name="category" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Год (начиная с)</label>
-                        <input name="year" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Марка</label>
-                        <input name="brand" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Пробег</label>
-                        <input name="mileage" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Модель</label>
-                        <input name="model" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Страна</label>
-                        <input name="country" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Цена</label>
-                        <input name="price" onChange={handleChange} />
-                    </div>
-
-                    <div className={styles.field}>
-                        <label>Вес</label>
-                        <input name="weight" onChange={handleChange} />
-                    </div>
-                </div>
-
-                <div className={styles.media}>
-                    <h3>Медиа файлы</h3>
-
-                    <div className={styles.mediaGrid}>
-                        <label className={styles.mainPhoto}>
-                            Нажмите, чтобы добавить главное фото
-                            <input type="file" hidden onChange={handleUpload} />
-                        </label>
-
-                        {[...Array(5)].map((_, i) => (
-                            <label key={i} className={styles.photoBox}>
-                                +
-                                <input type="file" hidden onChange={handleUpload} />
+        <main className="market-page">
+            <div className="market-container">
+                <div className="market-bar"><Link to={back}>Назад</Link></div>
+                <form className={styles.form} onSubmit={submit}>
+                    <h2>Обзор транспортного средства</h2>
+                    <div className={styles.grid}>
+                        {Object.entries(fieldLabels).map(([field, label]) => (
+                            <label key={field}>
+                                {label}
+                                <input name={field} value={values[field]} required={textFields.includes(field) || field === 'price'}
+                                    type={textFields.includes(field) ? 'text' : 'number'} maxLength={180}
+                                    min={field === 'year' ? 1886 : 0} max={field === 'year' ? new Date().getFullYear() + 1 : 999999999}
+                                    step={field === 'price' ? '0.01' : '1'}
+                                    onChange={(event) => setValues({ ...values, [field]: event.target.value })} />
                             </label>
                         ))}
                     </div>
-
-                    <label className={styles.addMore}>
-                        + Добавить еще фото
-                        <input type="file" hidden onChange={handleUpload} />
-                    </label>
-                </div>
-
-                <div className={styles.description}>
-                    <h3>Описание</h3>
-
-                    <div className={styles.editor}>
-                        <div className={styles.editorToolbar}>
-                            <button className={styles.toolbarButton}>
-                                <strong>B</strong>
-                            </button>
-                            <button className={styles.toolbarButton}>
-                                <em>I</em>
-                            </button>
-                            <button className={styles.toolbarButton}>
-                                <u>U</u>
-                            </button>
-                            <button className={styles.toolbarButton}>
-                                <s>A</s>
-                            </button>
-                            <button className={styles.toolbarButton}>H1</button>
-                        </div>
-
-                        <div className={styles.editorArea}>
-                            <textarea
-                                placeholder="Описание..."
-                                className={styles.editorTextarea}
-                                rows={4}
-                            />
-                        </div>
+                    <div className={styles.media}>
+                        <h3>Фотографии</h3>
+                        <p>Первое фото станет обложкой. До 6 файлов JPG, PNG или WebP, по 3 МБ.</p>
+                        {photoCount < 6 && <input aria-label="Добавить фотографии" type="file" accept={types.join(',')} multiple onChange={selectPhotos} />}
+                        {photoCount > 0 && <ul className={styles.photos}>
+                            {retained.map((url, index) => <li key={url}>
+                                <img src={url} alt={`Фото ${index + 1}`} />
+                                <button type="button" onClick={() => setRetained(retained.filter((_, position) => position !== index))}>Убрать фото {index + 1}</button>
+                            </li>)}
+                            {files.map((file, index) => <li key={`${file.name}-${index}`}>
+                                <span>{file.name}</span>
+                                <button type="button" onClick={() => setFiles(files.filter((_, position) => position !== index))}>Убрать фото {retained.length + index + 1}</button>
+                            </li>)}
+                        </ul>}
                     </div>
-                </div>
-            </form>
-
-            <div className={styles.actions}>
-                <button type="button" className={styles.preview}>
-                    Предпросмотр
-                </button>
-
-                <button type="submit" className={styles.submit}>
-                    СОЗДАТЬ ОБЪЯВЛЕНИЕ
-                </button>
+                    <label>Описание
+                        <textarea rows={6} value={description} maxLength={8000} onChange={(event) => setDescription(event.target.value)} />
+                    </label>
+                    {error && <p className="market-error" role="alert">{error}</p>}
+                    <div className="market-bar">
+                        <Link to={back}>Отменить</Link>
+                        <button className="market-button" disabled={busy}>{busy ? 'Сохранение…' : car ? 'Сохранить изменения' : 'Опубликовать объявление'}</button>
+                    </div>
+                </form>
             </div>
-        </div>
+        </main>
     );
 }
-
-export default AddCarForm;

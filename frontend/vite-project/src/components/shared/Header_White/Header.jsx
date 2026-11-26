@@ -1,31 +1,15 @@
-import styles from './headerW.module.scss';
-import { Photos } from '../../../../photo';
 import { Link } from 'react-router-dom';
 
-function Header_White() {
+export default function SellerHeader() {
     return (
-        <>
-            <header className={styles.headerWhite}>
-                <div className={styles.headerContainer}>
-                    <div className={styles.settings}>
-                        <Link to="/">
-                            <h2 className={styles.logo}>NOVO SELLER</h2>
-                        </Link>
-                        <div className={styles.settingLanguage}>
-                            <span>Язык</span>
-                            <img src={Photos.arrowDown} alt="" className={styles.settingIcon} />
-                        </div>
-                        <div className={styles.setting}>
-                            <span>Валюта</span>
-                            <img src={Photos.arrowDown} alt="" className={styles.settingIcon} />
-                        </div>
-                    </div>
-
-                    <button className={styles.switchBtn}>Перейти на NOVO</button>
-                </div>
-            </header>
-        </>
+        <header className="market-header">
+            <div className="market-container">
+                <Link to="/" className="market-logo">NOVO SELLER</Link>
+                <nav aria-label="Навигация">
+                    {localStorage.getItem('token') && <Link to="/my-ads">Кабинет</Link>}
+                    <Link to="/mainUsers" className="market-button">Перейти на NOVO</Link>
+                </nav>
+            </div>
+        </header>
     );
 }
-
-export default Header_White;
